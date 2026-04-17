@@ -1,0 +1,148 @@
+:root {
+    --accent: #a855f7; /* Purple-500 */
+    --accent-glow: rgba(168, 85, 247, 0.7);
+    --bg-dark: #0a0a0a;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    background-color: var(--bg-dark);
+}
+
+.font-serif {
+    font-family: 'Cormorant Garamond', serif;
+}
+
+.glow-text {
+    text-shadow: 0 0 15px var(--accent-glow);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+/* Parallax Section Wrappers */
+.menu-section-wrapper {
+    position: relative;
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    overflow: hidden;
+}
+
+.menu-section-wrapper::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, 
+        rgba(10, 10, 10, 0.98) 0%, 
+        rgba(10, 10, 10, 0.75) 30%, 
+        rgba(10, 10, 10, 0.75) 70%, 
+        rgba(10, 10, 10, 0.98) 100%);
+    z-index: 1;
+}
+
+/* Nav Styles */
+.nav-link {
+    transition: all 0.3s ease;
+    position: relative;
+    padding-bottom: 4px;
+}
+
+.nav-link.active {
+    color: white;
+}
+
+.nav-link.active::after {
+    content: '';
+    position: absolute;
+    bottom: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 10px var(--accent);
+}
+
+/* Cards */
+.premium-card {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 20px 50px -15px rgba(0,0,0,0.8);
+    transition: transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1), border-color 0.4s ease;
+}
+
+.premium-card:hover {
+    transform: translateY(-8px);
+    border-color: rgba(168, 85, 247, 0.4);
+}
+
+/* Menu List Items */
+.menu-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 0.25rem 0;
+    gap: 1.5rem;
+}
+
+.dots {
+    flex-grow: 1;
+    border-bottom: 1px dashed rgba(255, 255, 255, 0.1);
+    height: 1px;
+    margin-bottom: 5px;
+}
+
+/* Spirits Grid */
+.spirit-grid-header {
+    display: grid;
+    grid-template-columns: 2.2fr 1fr 1fr 1fr;
+    gap: 0.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    font-size: 0.55rem;
+    letter-spacing: 0.25em;
+    font-weight: 800;
+}
+
+.spirit-item {
+    display: grid;
+    grid-template-columns: 2.2fr 1fr 1fr 1fr;
+    gap: 0.5rem;
+    padding: 0.9rem 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    align-items: center;
+    transition: background 0.3s ease;
+}
+
+.spirit-item:hover {
+    background: rgba(168, 85, 247, 0.05);
+}
+
+.spirit-price {
+    text-align: right;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.8rem;
+}
+
+/* Mobile Adjustments */
+@media (max-width: 768px) {
+    .menu-section-wrapper {
+        background-attachment: scroll; 
+    }
+}
+
+@media (max-width: 640px) {
+    .spirit-item, .spirit-grid-header {
+        grid-template-columns: 1.6fr 1fr 1fr 1fr;
+    }
+    .spirit-price {
+        font-size: 0.7rem;
+    }
+}
