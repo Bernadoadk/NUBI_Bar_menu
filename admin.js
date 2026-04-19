@@ -1,12 +1,12 @@
 
+import CONFIG from './config.js';
+
 let sb;
 let currentSectionId = null;
 let allSections = [];
 let currentSubsections = [];
 
-document.addEventListener('DOMContentLoaded', () => {
-    init();
-});
+init();
 
 async function init() {
     sb = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);

@@ -1,4 +1,4 @@
-
+import CONFIG from './config.js';
 
 let currentLang = 'en';
 let menuData = [];
@@ -30,272 +30,122 @@ const uiStrings = {
     }
 };
 
-document.addEventListener('DOMContentLoaded', () => {
-    init();
-});
+init();
 
 async function init() {
     sb = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
     
     await loadMenuData();
-    
-    if (typeof lucide !== 'undefined') lucide.createIcons();
-    updateUI();
-    renderNav();
-    renderMenu();
-    setupNavigation();
-    setupLangToggle();
-    if (typeof gsap !== 'undefined') initScrollAnimations();
+    renderContent();
+    setupEventListeners();
 }
 
 async function loadMenuData() {
-    // Fetch sections, subsections and items
-    const { data: sections } = await sb.from('sections').select('*').order('sort_order');
-    const { data: subs } = await sb.from('subsections').select('*').order('sort_order');
-    const { data: items } = await sb.from('items').select('*').eq('is_visible', true).order('sort_order');
+    // 1. Fetch Sections
+    const { data: sections, error: secError } = await sb.from('sections').select('*').order('sort_order');
+    if (secError) { console.error(secError); return; }
 
-    // Reconstruct the nested structure
-    menuData = sections.map(section => {
-        const sectionSubs = subs.filter(s => s.section_id === section.id);
-        const sectionItems = items.filter(i => i.section_id === section.id);
+    // 2. Fetch Subsections
+    const { data: subsections, error: subError } = await sb.from('subsections').select('*').order('sort_order');
+    if (subError) { console.error(subError); return; }
 
-        const structuredSection = {
-            id: section.slug,
-            title: { en: section.title_en, fr: section.title_fr },
-            subtitle: section.subtitle_en ? { en: section.subtitle_en, fr: section.subtitle_fr } : null,
-            type: section.type,
-        };
+    // 3. Fetch Items
+    const { data: items, error: itemError } = await sb.from('items').select('*').eq('is_visible', true).order('sort_order');
+    if (itemError) { console.error(itemError); return; }
 
-        if (section.type === 'spirits') {
-            structuredSection.categories = sectionSubs.map(sub => ({
-                name: { en: sub.name_en, fr: sub.name_fr },
-                items: items.filter(i => i.subsection_id === sub.id).map(i => ({
-                    name: i.name_en,
-                    prices: i.prices_array
-                }))
-            }));
-        } else if (sectionSubs.length > 0) {
-            structuredSection.subsections = sectionSubs.map(sub => ({
+    // Assemble hierarchical data
+    menuData = sections.map(sec => {
+        const secSubs = subsections.filter(s => s.section_id === sec.id);
+        const secItems = items.filter(i => i.section_id === sec.id && !i.subsection_id);
+        
+        return {
+            id: sec.id,
+            slug: sec.slug,
+            title: { en: sec.title_en, fr: sec.title_fr },
+            subsections: secSubs.map(sub => ({
+                id: sub.id,
                 name: { en: sub.name_en, fr: sub.name_fr },
                 defaultPrice: sub.default_price,
-                items: items.filter(i => i.subsection_id === sub.id).map(mapItem)
-            }));
-        } else {
-            structuredSection.items = sectionItems.map(mapItem);
-        }
-
-        return structuredSection;
+                items: items.filter(i => i.subsection_id === sub.id)
+            })),
+            items: secItems
+        };
     });
 }
 
-function mapItem(i) {
-    return {
-        name: i.name_fr ? { en: i.name_en, fr: i.name_fr } : i.name_en,
-        price: i.price,
-        description: i.description_en ? { en: i.description_en, fr: i.description_fr } : null,
-        note: i.note_en ? { en: i.note_en, fr: i.note_fr } : null
-    };
-}
-// Rest of the rendering functions remain mostly the same, but use the dynamic menuData
-function updateUI() {
-    const s = uiStrings[currentLang];
-    document.getElementById('hero-subtitle').textContent = s.hero_subtitle;
-    document.getElementById('hero-categories').textContent = s.hero_categories;
-    document.getElementById('footer-tagline').textContent = s.footer_tagline;
-    document.getElementById('footer-disclaimer').textContent = s.footer_disclaimer;
-    document.getElementById('whatsapp-text').textContent = s.whatsapp_text;
-    document.getElementById('lang-text').textContent = currentLang === 'en' ? 'FR' : 'EN';
-    
-    const waBase = "https://wa.me/225000000000?text=";
-    const waText = currentLang === 'en' ? "Hello NUBI Bar, I'd like to reserve a table." : "Bonjour NUBI Bar, je souhaiterais réserver une table.";
-    const waBtn = document.getElementById('whatsapp-btn');
-    if (waBtn) waBtn.href = waBase + encodeURIComponent(waText);
-}
+function renderContent() {
+    // Update static text
+    document.getElementById('hero-subtitle').textContent = uiStrings[currentLang].hero_subtitle;
+    document.getElementById('hero-categories').textContent = uiStrings[currentLang].hero_categories;
+    document.getElementById('footer-tagline').textContent = uiStrings[currentLang].footer_tagline;
+    document.getElementById('footer-disclaimer').textContent = uiStrings[currentLang].footer_disclaimer;
+    document.getElementById('whatsapp-text').textContent = uiStrings[currentLang].whatsapp_text;
 
-function renderNav() {
-    const navList = document.getElementById('nav-list');
-    if (!navList) return;
-    navList.innerHTML = menuData.map(section => `
-        <li><a href="#${section.id}" class="nav-link">${section.title[currentLang]}</a></li>
-    `).join('');
+    renderMenu();
 }
 
 function renderMenu() {
-    const container = document.getElementById('menu-container');
-    if (!container) return;
-    container.innerHTML = ''; 
-
-    menuData.forEach(section => {
-        const bgWrapper = document.createElement('div');
-        bgWrapper.className = 'menu-section-wrapper py-24 md:py-32';
-        bgWrapper.style.backgroundImage = `url('${sectionImages[section.id] || ''}')`;
-        
-        const contentContainer = document.createElement('div');
-        contentContainer.className = 'container mx-auto px-4 max-w-5xl relative z-20';
-        
-        const sectionEl = document.createElement('section');
-        sectionEl.id = section.id;
-        sectionEl.className = 'scroll-mt-32';
-
-        const subtitleText = section.subtitle ? section.subtitle[currentLang] : '';
-        const headerHtml = `
-            <div class="mb-16 text-center">
-                <h2 class="text-4xl md:text-7xl font-serif text-white mb-6 drop-shadow-lg">${section.title[currentLang]}</h2>
-                <div class="flex items-center justify-center gap-6">
-                    <div class="h-px bg-purple-500/50 w-12"></div>
-                    ${subtitleText ? `<p class="text-purple-400 text-[10px] tracking-[0.3em] uppercase font-bold glow-text">${subtitleText}</p>` : '<div class="w-2 h-2 rounded-full bg-purple-500 shadow-[0_0_8px_#a855f7]"></div>'}
-                    <div class="h-px bg-purple-500/50 w-12"></div>
+    const container = document.getElementById('menu-sections');
+    container.innerHTML = menuData.map(section => `
+        <section id="${section.slug}" class="mb-20">
+            <div class="relative h-64 md:h-80 rounded-3xl overflow-hidden mb-12 group">
+                <img src="${sectionImages[section.slug] || ''}" alt="${section.title[currentLang]}" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110">
+                <div class="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent"></div>
+                <div class="absolute bottom-8 left-8">
+                    <h2 class="text-4xl md:text-5xl font-serif text-white uppercase tracking-wider">${section.title[currentLang]}</h2>
                 </div>
             </div>
-        `;
 
-        let bodyHtml = '';
-        if (section.type === 'featured') {
-            bodyHtml += `<div class="grid md:grid-cols-2 gap-8">`;
-            section.subsections.forEach(sub => {
-                bodyHtml += `
-                    <div class="premium-card p-8 rounded-2xl backdrop-blur-md bg-black/50 border border-white/10">
-                        <h3 class="text-xl font-serif text-white mb-6 border-b border-white/10 pb-4 flex justify-between items-end">
-                            ${sub.name[currentLang]}
-                            ${sub.defaultPrice ? `<span class="text-purple-400 text-xs font-sans tracking-tight">${sub.defaultPrice}</span>` : ''}
-                        </h3>
-                        <div class="space-y-6">
-                            ${sub.items.map(item => `
-                                <div>
-                                    <div class="flex justify-between gap-4 items-baseline">
-                                        <span class="text-white font-medium text-sm tracking-wide">${typeof item.name === 'object' ? item.name[currentLang] : item.name}</span>
-                                        ${item.price ? `<span class="text-purple-400 font-semibold text-xs whitespace-nowrap glow-text">${item.price}</span>` : ''}
-                                    </div>
-                                    ${item.description ? `<p class="text-gray-400 text-[11px] mt-1 leading-relaxed font-light italic opacity-80">${item.description[currentLang]}</p>` : ''}
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-                `;
-            });
-            bodyHtml += `</div>`;
-        } else if (section.type === 'spirits') {
-            const s = uiStrings[currentLang];
-            bodyHtml += `<div class="grid lg:grid-cols-2 gap-10">`;
-            section.categories.forEach(cat => {
-                bodyHtml += `
-                    <div class="backdrop-blur-sm bg-black/40 p-6 rounded-xl border border-white/5">
-                        <h3 class="text-lg font-serif text-purple-400 mb-6 flex items-center gap-3">
-                            <span class="w-6 h-px bg-purple-500/30"></span>
-                            ${cat.name[currentLang]}
-                        </h3>
-                        <div class="spirit-grid-header text-purple-200/40">
-                            <span>${s.name}</span>
-                            <span class="text-right">${s.btl}</span>
-                            <span class="text-right">${s.gls}</span>
-                            <span class="text-right">${s.shot}</span>
-                        </div>
-                        <div class="mt-2">
-                            ${cat.items.map(item => `
-                                <div class="spirit-item group">
-                                    <span class="text-white text-xs font-medium group-hover:text-purple-400 transition-colors">${item.name}</span>
-                                    <span class="spirit-price text-gray-400">${item.prices[0] || '-'}</span>
-                                    <span class="spirit-price text-gray-400">${item.prices[1] || '-'}</span>
-                                    <span class="spirit-price text-purple-400 font-bold glow-text">${item.prices[2] || '-'}</span>
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-                `;
-            });
-            bodyHtml += `</div>`;
-        } else {
-            const listWrapperStart = `<div class="backdrop-blur-md bg-black/50 p-6 md:p-10 rounded-2xl border border-white/10">`;
-            let listContent = '';
-            if (section.subsections) {
-                listContent += `<div class="space-y-12">`;
-                section.subsections.forEach(sub => {
-                    listContent += `
-                        <div>
-                            <h3 class="text-xl font-serif text-purple-200/50 mb-6 italic flex items-center gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-12">
+                ${section.subsections.map(sub => `
+                    <div class="col-span-full mb-4">
+                        <div class="flex items-center gap-6 mb-8 group">
+                            <div class="h-px flex-grow bg-gradient-to-r from-transparent via-purple-500/30 to-transparent"></div>
+                            <h3 class="text-2xl font-serif text-purple-400 uppercase tracking-widest px-4 flex items-center gap-4">
                                 ${sub.name[currentLang]}
-                                <div class="h-px bg-white/10 flex-grow"></div>
+                                ${sub.defaultPrice ? `<span class="text-sm font-sans bg-purple-500/10 text-purple-400 px-3 py-1 rounded-full border border-purple-500/20">${sub.defaultPrice}</span>` : ''}
                             </h3>
-                            <div class="grid md:grid-cols-2 gap-x-10 gap-y-2">
-                                ${sub.items.map(item => renderListItem(item)).join('')}
-                            </div>
+                            <div class="h-px flex-grow bg-gradient-to-r from-transparent via-purple-500/30 to-transparent"></div>
                         </div>
-                    `;
-                });
-                listContent += `</div>`;
-            } else {
-                listContent += `<div class="grid md:grid-cols-2 gap-x-10 gap-y-2">
-                    ${section.items.map(item => renderListItem(item)).join('')}
-                </div>`;
-            }
-            bodyHtml += listWrapperStart + listContent + `</div>`;
-        }
-
-        sectionEl.innerHTML = headerHtml + bodyHtml;
-        contentContainer.appendChild(sectionEl);
-        bgWrapper.appendChild(contentContainer);
-        container.appendChild(bgWrapper);
-    });
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-10">
+                            ${sub.items.map(item => renderItem(item)).join('')}
+                        </div>
+                    </div>
+                `).join('')}
+                
+                ${section.items.map(item => renderItem(item)).join('')}
+            </div>
+        </section>
+    `).join('');
 }
 
-function renderListItem(item) {
-    const name = typeof item.name === 'object' ? item.name[currentLang] : item.name;
-    const note = item.note ? (typeof item.note === 'object' ? item.note[currentLang] : item.note) : null;
-    const desc = item.description ? (typeof item.description === 'object' ? item.description[currentLang] : item.description) : null;
-    
+function renderItem(item) {
+    const hasDetails = (currentLang === 'en' ? item.description_en : item.description_fr);
     return `
-        <div class="group py-2">
-            <div class="menu-item">
-                <span class="text-white group-hover:text-purple-400 transition-colors text-sm font-medium tracking-wide">${name}</span>
-                <span class="dots"></span>
-                <span class="text-purple-400 font-bold text-xs tracking-tighter whitespace-nowrap glow-text">${item.price || ''}</span>
+        <div class="group">
+            <div class="flex justify-between items-baseline mb-2">
+                <h4 class="text-lg font-medium text-gray-200 group-hover:text-purple-400 transition-colors uppercase tracking-tight">
+                    ${currentLang === 'en' ? item.name_en : (item.name_fr || item.name_en)}
+                </h4>
+                ${item.price ? `<span class="text-purple-400 font-bold ml-4">${item.price}</span>` : ''}
             </div>
-            ${note ? `<p class="text-[9px] text-purple-500/80 uppercase tracking-[0.15em] font-bold mt-1">${note}</p>` : ''}
-            ${desc ? `<p class="text-[11px] text-gray-400 mt-1 font-light leading-relaxed opacity-70 italic">${desc}</p>` : ''}
+            ${hasDetails ? `<p class="text-sm text-gray-500 font-light leading-relaxed italic">${hasDetails}</p>` : ''}
         </div>
     `;
 }
 
-function setupNavigation() {
-    const observerOptions = { root: null, rootMargin: '-20% 0px -70% 0px', threshold: 0 };
-    const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                const id = entry.target.getAttribute('id');
-                document.querySelectorAll('.nav-link').forEach(link => {
-                    link.classList.toggle('active', link.getAttribute('href') === `#${id}`);
-                });
-            }
+function setupEventListeners() {
+    document.querySelectorAll('.lang-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            currentLang = e.target.dataset.lang;
+            
+            // UI Updates
+            document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('bg-purple-600', 'text-white'));
+            document.querySelectorAll('.lang-btn').forEach(b => b.classList.add('text-gray-500'));
+            e.target.classList.add('bg-purple-600', 'text-white');
+            e.target.classList.remove('text-gray-500');
+
+            renderContent();
         });
-    }, observerOptions);
-    document.querySelectorAll('section').forEach(section => observer.observe(section));
-}
-
-function setupLangToggle() {
-    const btn = document.getElementById('lang-toggle');
-    if (!btn) return;
-    btn.addEventListener('click', () => {
-        currentLang = currentLang === 'en' ? 'fr' : 'en';
-        updateUI();
-        renderNav();
-        renderMenu();
-        setupNavigation();
-    });
-}
-
-function initScrollAnimations() {
-    gsap.registerPlugin(ScrollTrigger);
-    gsap.utils.toArray('.menu-section-wrapper').forEach(wrapper => {
-        const section = wrapper.querySelector('section');
-        if (section) {
-            gsap.from(section, {
-                opacity: 0, y: 30, duration: 0.8, ease: "power2.out",
-                scrollTrigger: {
-                    trigger: wrapper,
-                    start: "top 85%",
-                    toggleActions: "play none none none"
-                }
-            });
-        }
     });
 }
