@@ -1,8 +1,6 @@
-import CONFIG from './config.js';
+import { menuData, uiStrings } from './menu_data.js';
 
 let currentLang = 'en';
-let menuData = [];
-let sb;
 
 const sectionImages = {
     'drinks-of-the-week': 'https://images.unsplash.com/photo-1772311698901-fe3fa07141be?fm=jpg&q=60&w=3000&auto=format&fit=crop',
@@ -13,94 +11,17 @@ const sectionImages = {
     'desserts': 'https://thumbs.dreamstime.com/b/three-creamy-delicious-milkshake-variations-elegant-glasses-three-milkshakes-whipped-cream-chocolate-drizzle-displayed-362520258.jpg'
 };
 
-const uiStrings = {
-    en: {
-        hero_subtitle: "Discover Our Selection",
-        hero_categories: "Wines • Spirits • Cocktails • Food",
-        footer_tagline: "Elegance in every pour.",
-        footer_disclaimer: "© 2026 NUBI Bar • All prices in FCFA • Please drink responsibly",
-        whatsapp_text: "RESERVE TABLE", btl: "BTL", gls: "GLS", shot: "SHOT", name: "NAME"
-    },
-    fr: {
-        hero_subtitle: "Découvrez Notre Sélection",
-        hero_categories: "Vins • Spiritueux • Cocktails • Cuisine",
-        footer_tagline: "L'élégance dans chaque verre.",
-        footer_disclaimer: "© 2026 NUBI Bar • Prix en FCFA • À consommer avec modération",
-        whatsapp_text: "RÉSERVER", btl: "BTE", gls: "VER", shot: "SHOT", name: "NOM"
-    }
-};
+document.addEventListener('DOMContentLoaded', () => {
+    init();
+});
 
-init();
-
-async function init() {
-    sb = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
-    
-    await loadMenuData();
-    renderContent();
-    setupNavigation();
-    setupLangToggle();
-}
-
-async function loadMenuData() {
-    // 1. Fetch Sections
-    const { data: sections, error: secError } = await sb.from('sections').select('*').order('sort_order');
-    if (secError) { console.error(secError); return; }
-
-    // 2. Fetch Subsections
-    const { data: subsections, error: subError } = await sb.from('subsections').select('*').order('sort_order');
-    if (subError) { console.error(subError); return; }
-
-    // 3. Fetch Items
-    const { data: items, error: itemError } = await sb.from('items').select('*').eq('is_visible', true).order('sort_order');
-    if (itemError) { console.error(itemError); return; }
-
-    // Assemble hierarchical data matching design.js expectations
-    menuData = sections.map(sec => {
-        const secSubs = subsections.filter(s => s.section_id === sec.id);
-        const secItems = items.filter(i => i.section_id === sec.id && !i.subsection_id);
-        
-        const data = {
-            id: sec.slug,
-            title: { en: sec.title_en, fr: sec.title_fr },
-            type: sec.type || 'list',
-            subtitle: (sec.subtitle_en || sec.subtitle_fr) ? { en: sec.subtitle_en, fr: sec.subtitle_fr } : null,
-            items: secItems.map(i => mapItem(i))
-        };
-
-        if (sec.type === 'spirits') {
-            data.categories = secSubs.map(sub => ({
-                id: sub.id,
-                name: { en: sub.name_en, fr: sub.name_fr },
-                items: items.filter(i => i.subsection_id === sub.id).map(i => mapItem(i))
-            }));
-        } else {
-            data.subsections = secSubs.map(sub => ({
-                id: sub.id,
-                name: { en: sub.name_en, fr: sub.name_fr },
-                defaultPrice: sub.default_price,
-                items: items.filter(i => i.subsection_id === sub.id).map(i => mapItem(i))
-            }));
-        }
-        
-        return data;
-    });
-}
-
-function mapItem(i) {
-    return {
-        name: { en: i.name_en, fr: i.name_fr || i.name_en },
-        price: i.price,
-        description: (i.description_en || i.description_fr) ? { en: i.description_en, fr: i.description_fr } : null,
-        note: (i.note_en || i.note_fr) ? { en: i.note_en, fr: i.note_fr } : null,
-        prices: i.prices_array // for spirits
-    };
-}
-
-function renderContent() {
+function init() {
+    if (typeof lucide !== 'undefined') lucide.createIcons();
     updateUI();
     renderNav();
     renderMenu();
-    if (typeof lucide !== 'undefined') lucide.createIcons();
+    setupNavigation();
+    setupLangToggle();
     if (typeof gsap !== 'undefined') initScrollAnimations();
 }
 
@@ -121,7 +42,7 @@ function updateUI() {
 function renderNav() {
     const navList = document.getElementById('nav-list');
     navList.innerHTML = menuData.map(section => `
-        <li><a href="#${section.id}" class="nav-link cursor-pointer">${section.title[currentLang]}</a></li>
+        <li><a href="#${section.id}" class="nav-link">${section.title[currentLang]}</a></li>
     `).join('');
 }
 
@@ -168,7 +89,7 @@ function renderMenu() {
                             ${sub.items.map(item => `
                                 <div>
                                     <div class="flex justify-between gap-4 items-baseline">
-                                        <span class="text-white font-medium text-sm tracking-wide">${item.name[currentLang]}</span>
+                                        <span class="text-white font-medium text-sm tracking-wide">${typeof item.name === 'object' ? item.name[currentLang] : item.name}</span>
                                         ${item.price ? `<span class="text-purple-400 font-semibold text-xs whitespace-nowrap glow-text">${item.price}</span>` : ''}
                                     </div>
                                     ${item.description ? `<p class="text-gray-400 text-[11px] mt-1 leading-relaxed font-light italic opacity-80">${item.description[currentLang]}</p>` : ''}
@@ -198,10 +119,10 @@ function renderMenu() {
                         <div class="mt-2">
                             ${cat.items.map(item => `
                                 <div class="spirit-item group">
-                                    <span class="text-white text-xs font-medium group-hover:text-purple-400 transition-colors">${item.name[currentLang]}</span>
-                                    <span class="spirit-price text-gray-400">${item.prices ? item.prices[0] : ''}</span>
-                                    <span class="spirit-price text-gray-400">${item.prices ? item.prices[1] : ''}</span>
-                                    <span class="spirit-price text-purple-400 font-bold glow-text">${item.prices ? item.prices[2] : ''}</span>
+                                    <span class="text-white text-xs font-medium group-hover:text-purple-400 transition-colors">${item.name}</span>
+                                    <span class="spirit-price text-gray-400">${item.prices[0]}</span>
+                                    <span class="spirit-price text-gray-400">${item.prices[1]}</span>
+                                    <span class="spirit-price text-purple-400 font-bold glow-text">${item.prices[2]}</span>
                                 </div>
                             `).join('')}
                         </div>
@@ -212,7 +133,7 @@ function renderMenu() {
         } else {
             const listWrapperStart = `<div class="backdrop-blur-md bg-black/50 p-6 md:p-10 rounded-2xl border border-white/10">`;
             let listContent = '';
-            if (section.subsections && section.subsections.length > 0) {
+            if (section.subsections) {
                 listContent += `<div class="space-y-12">`;
                 section.subsections.forEach(sub => {
                     listContent += `
@@ -244,16 +165,16 @@ function renderMenu() {
 }
 
 function renderListItem(item) {
-    const name = item.name[currentLang];
-    const note = item.note ? item.note[currentLang] : null;
-    const desc = item.description ? item.description[currentLang] : null;
+    const name = typeof item.name === 'object' ? item.name[currentLang] : item.name;
+    const note = item.note ? (typeof item.note === 'object' ? item.note[currentLang] : item.note) : null;
+    const desc = item.description ? (typeof item.description === 'object' ? item.description[currentLang] : item.description) : null;
     
     return `
         <div class="group py-2">
             <div class="menu-item">
                 <span class="text-white group-hover:text-purple-400 transition-colors text-sm font-medium tracking-wide">${name}</span>
                 <span class="dots"></span>
-                <span class="text-purple-400 font-bold text-xs tracking-tighter whitespace-nowrap glow-text">${item.price || ''}</span>
+                <span class="text-purple-400 font-bold text-xs tracking-tighter whitespace-nowrap glow-text">${item.price}</span>
             </div>
             ${note ? `<p class="text-[9px] text-purple-500/80 uppercase tracking-[0.15em] font-bold mt-1">${note}</p>` : ''}
             ${desc ? `<p class="text-[11px] text-gray-400 mt-1 font-light leading-relaxed opacity-70 italic">${desc}</p>` : ''}
@@ -279,7 +200,10 @@ function setupNavigation() {
 function setupLangToggle() {
     document.getElementById('lang-toggle').addEventListener('click', () => {
         currentLang = currentLang === 'en' ? 'fr' : 'en';
-        renderContent();
+        updateUI();
+        renderNav();
+        renderMenu();
+
         setupNavigation();
     });
 }

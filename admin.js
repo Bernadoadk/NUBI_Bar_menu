@@ -139,6 +139,7 @@ async function loadDashboard() {
         selectSection(sections[0].id);
     }
 }
+window.loadDashboard = loadDashboard;
 
 function renderSidebar() {
     const nav = document.getElementById('sidebar-nav');
@@ -149,6 +150,7 @@ function renderSidebar() {
         </button>
     `).join('');
 }
+window.renderSidebar = renderSidebar;
 
 async function selectSection(id) {
     currentSectionId = id;
@@ -157,6 +159,7 @@ async function selectSection(id) {
     renderSidebar();
     loadItems();
 }
+window.selectSection = selectSection;
 
 async function loadItems() {
     const container = document.getElementById('items-container');
@@ -210,8 +213,10 @@ async function loadItems() {
 
     container.innerHTML = finalHtml || '<div class="col-span-full text-center py-10 opacity-50">No items found.</div>';
     
+    
     if (typeof lucide !== 'undefined') lucide.createIcons();
 }
+window.loadItems = loadItems;
 
 function renderItemCard(item) {
     return `
@@ -254,12 +259,14 @@ async function editSubPrice(id) {
     modal.classList.remove('hidden');
     modal.classList.add('flex');
 }
+window.editSubPrice = editSubPrice;
 
 function closeSubModal() {
     const modal = document.getElementById('sub-modal-container');
     modal.classList.add('hidden');
     modal.classList.remove('flex');
 }
+window.closeSubModal = closeSubModal;
 
 // Add to setupEventListeners or init
 function setupSubFormListener() {
@@ -323,6 +330,7 @@ async function openModal(id = null) {
     modal.classList.remove('hidden');
     modal.classList.add('flex');
 }
+window.openModal = openModal;
 
 function selectCustomOption(val, text) {
     document.getElementById('item-subsection').value = val;
@@ -334,6 +342,7 @@ function selectCustomOption(val, text) {
         opt.classList.toggle('selected', opt.textContent === text);
     });
 }
+window.selectCustomOption = selectCustomOption;
 
 // Add these to setupEventListeners
 function setupCustomSelect() {
@@ -355,6 +364,7 @@ function closeModal() {
     modal.classList.add('hidden');
     modal.classList.remove('flex');
 }
+window.closeModal = closeModal;
 
 async function saveItem() {
     const id = document.getElementById('item-id').value;
@@ -390,8 +400,10 @@ async function deleteItem(id) {
     if (error) alert("Error deleting item: " + error.message);
     else loadItems();
 }
+window.deleteItem = deleteItem;
 
 async function toggleVisibility(id, current) {
     const { error } = await sb.from('items').update({ is_visible: !current }).eq('id', id);
     if (!error) loadItems();
 }
+window.toggleVisibility = toggleVisibility;
