@@ -90,9 +90,14 @@
                     <h1 id="current-section-title" class="text-4xl font-serif text-white">Menu Management</h1>
                     <p class="text-sm text-gray-500 mt-2">Manage your products and their visibility on the menu.</p>
                 </div>
-                <button id="add-item-btn" class="bg-purple-600/10 border border-purple-500/30 hover:border-purple-500 text-purple-400 px-6 py-3 rounded-full text-xs font-bold tracking-widest transition-all flex items-center gap-2">
-                    <i data-lucide="plus" class="w-4 h-4"></i> ADD NEW ITEM
-                </button>
+                <div class="flex gap-4">
+                    <button id="add-category-btn" onclick="openSubModal()" class="bg-white/5 border border-white/10 hover:border-purple-500 text-gray-400 hover:text-white px-6 py-3 rounded-full text-xs font-bold tracking-widest transition-all flex items-center gap-2">
+                        <i data-lucide="folder-plus" class="w-4 h-4"></i> ADD CATEGORY
+                    </button>
+                    <button id="add-item-btn" class="bg-purple-600/10 border border-purple-500/30 hover:border-purple-500 text-purple-400 px-6 py-3 rounded-full text-xs font-bold tracking-widest transition-all flex items-center gap-2">
+                        <i data-lucide="plus" class="w-4 h-4"></i> ADD NEW ITEM
+                    </button>
+                </div>
             </header>
 
             <div id="items-container" class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -166,21 +171,28 @@
     <div id="sub-modal-container" class="fixed inset-0 z-[110] hidden flex items-center justify-center bg-black/80 backdrop-blur-sm">
         <div class="w-full max-w-lg bg-[#0a0a0a] border border-white/10 rounded-3xl p-8">
             <div class="flex justify-between items-center mb-8">
-                <h2 class="text-2xl font-serif text-white">Edit Category</h2>
-                <button onclick="closeSubModal()" class="text-gray-500 hover:text-white"><i data-lucide="x"></i></button>
+                <h2 id="sub-modal-title" class="text-2xl font-serif text-white">Edit Category</h2>
+                <button type="button" onclick="closeSubModal()" class="text-gray-500 hover:text-white"><i data-lucide="x"></i></button>
             </div>
             <form id="sub-form" class="space-y-6">
                 <input type="hidden" id="sub-id">
-                <div>
-                    <label class="block text-[10px] uppercase tracking-widest text-gray-500 mb-2 font-bold">Category Name</label>
-                    <input type="text" id="sub-name" required class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:border-purple-500 outline-none transition-all">
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-[10px] uppercase tracking-widest text-gray-500 mb-2 font-bold">Category Name (English)</label>
+                        <input type="text" id="sub-name" required class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:border-purple-500 outline-none transition-all">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] uppercase tracking-widest text-gray-500 mb-2 font-bold">Category Name (French)</label>
+                        <input type="text" id="sub-name-fr" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:border-purple-500 outline-none transition-all">
+                    </div>
                 </div>
                 <div>
                     <label class="block text-[10px] uppercase tracking-widest text-gray-500 mb-2 font-bold">Default Price (optional)</label>
                     <input type="text" id="sub-price" placeholder="e.g. 6,500 FCFA" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:border-purple-500 outline-none transition-all">
                 </div>
                 <div class="pt-4 border-t border-white/5 flex gap-4">
-                    <button type="submit" class="flex-grow bg-purple-600 hover:bg-purple-500 text-white font-bold py-4 rounded-xl transition-all">UPDATE CATEGORY</button>
+                    <button type="submit" class="flex-grow bg-purple-600 hover:bg-purple-500 text-white font-bold py-4 rounded-xl transition-all">SAVE CATEGORY</button>
+                    <button id="delete-sub-btn" type="button" onclick="deleteSub()" class="px-6 border border-red-900/20 text-red-900/60 hover:text-red-400 hover:border-red-400/50 rounded-xl text-[10px] font-bold tracking-widest transition-all">DELETE</button>
                     <button type="button" onclick="closeSubModal()" class="px-8 border border-white/10 hover:bg-white/5 rounded-xl text-sm font-bold tracking-widest transition-all">CANCEL</button>
                 </div>
             </form>

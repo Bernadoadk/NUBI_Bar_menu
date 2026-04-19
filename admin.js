@@ -215,7 +215,7 @@ async function loadItems() {
                             <h2 class="text-xl font-serif text-purple-400 font-bold">${sub.name_en}</h2>
                             ${sub.default_price ? `<span class="bg-purple-500/10 text-purple-400 text-[10px] px-3 py-1 rounded-full border border-purple-500/20 font-bold tracking-widest">${sub.default_price}</span>` : ''}
                         </div>
-                        <button onclick="editSubPrice('${sub.id}', '${sub.default_price || ''}')" class="text-[10px] font-bold text-gray-500 hover:text-white transition-colors tracking-widest uppercase">Edit Category Price</button>
+                        <button onclick="openSubModal('${sub.id}')" class="text-[10px] font-bold text-gray-500 hover:text-white transition-colors tracking-widest uppercase">Edit Category</button>
                     </div>
                 </div>
                 ${subItems.map(item => renderItemCard(item)).join('')}
@@ -263,19 +263,33 @@ function renderItemCard(item) {
     `;
 }
 
-async function editSubPrice(id) {
-    const sub = currentSubsections.find(s => s.id === id);
-    if (!sub) return;
-
-    document.getElementById('sub-id').value = sub.id;
-    document.getElementById('sub-name').value = sub.name_en;
-    document.getElementById('sub-price').value = sub.default_price || '';
-
+async function openSubModal(id = null) {
     const modal = document.getElementById('sub-modal-container');
+    const form = document.getElementById('sub-form');
+    const title = document.getElementById('sub-modal-title');
+    const deleteBtn = document.getElementById('delete-sub-btn');
+    
+    form.reset();
+    document.getElementById('sub-id').value = id || '';
+    
+    if (id) {
+        title.textContent = 'Edit Category';
+        deleteBtn.classList.remove('hidden');
+        const sub = currentSubsections.find(s => s.id === id);
+        if (sub) {
+            document.getElementById('sub-name').value = sub.name_en;
+            document.getElementById('sub-name-fr').value = sub.name_fr || '';
+            document.getElementById('sub-price').value = sub.default_price || '';
+        }
+    } else {
+        title.textContent = 'Add New Category';
+        deleteBtn.classList.add('hidden');
+    }
+
     modal.classList.remove('hidden');
     modal.classList.add('flex');
 }
-window.editSubPrice = editSubPrice;
+window.openSubModal = openSubModal;
 
 function closeSubModal() {
     const modal = document.getElementById('sub-modal-container');
@@ -290,19 +304,43 @@ function setupSubFormListener() {
         e.preventDefault();
         const id = document.getElementById('sub-id').value;
         const subData = {
+            section_id: currentSectionId, // Always link to current section
             name_en: document.getElementById('sub-name').value,
+            name_fr: document.getElementById('sub-name-fr').value,
             default_price: document.getElementById('sub-price').value
         };
 
-        const { error } = await sb.from('subsections').update(subData).eq('id', id);
+        let error;
+        if (id) {
+            ({ error } = await sb.from('subsections').update(subData).eq('id', id));
+        } else {
+            ({ error } = await sb.from('subsections').insert([subData]));
+        }
+
         if (error) {
-            alert("Error updating category: " + error.message);
+            alert("Error saving category: " + error.message);
         } else {
             closeSubModal();
             loadItems();
         }
     });
 }
+
+async function deleteSub() {
+    const id = document.getElementById('sub-id').value;
+    if (!id) return;
+    
+    if (!confirm("Are you sure you want to delete this category? All items in this category will be unlinked (or you can move them first).")) return;
+    
+    const { error } = await sb.from('subsections').delete().eq('id', id);
+    if (error) {
+        alert("Error deleting category: " + error.message);
+    } else {
+        closeSubModal();
+        loadItems();
+    }
+}
+window.deleteSub = deleteSub;
 
 async function openModal(id = null) {
     const modal = document.getElementById('modal-container');
