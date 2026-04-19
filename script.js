@@ -1,6 +1,8 @@
 
 
 let currentLang = 'en';
+let menuData = [];
+let sb;
 
 const sectionImages = {
     'drinks-of-the-week': 'https://images.unsplash.com/photo-1772311698901-fe3fa07141be?fm=jpg&q=60&w=3000&auto=format&fit=crop',
@@ -11,11 +13,32 @@ const sectionImages = {
     'desserts': 'https://thumbs.dreamstime.com/b/three-creamy-delicious-milkshake-variations-elegant-glasses-three-milkshakes-whipped-cream-chocolate-drizzle-displayed-362520258.jpg'
 };
 
+const uiStrings = {
+    en: {
+        hero_subtitle: "Discover Our Selection",
+        hero_categories: "Wines • Spirits • Cocktails • Food",
+        footer_tagline: "Elegance in every pour.",
+        footer_disclaimer: "© 2026 NUBI Bar • All prices in FCFA • Please drink responsibly",
+        whatsapp_text: "RESERVE TABLE", btl: "BTL", gls: "GLS", shot: "SHOT", name: "NAME"
+    },
+    fr: {
+        hero_subtitle: "Découvrez Notre Sélection",
+        hero_categories: "Vins • Spiritueux • Cocktails • Cuisine",
+        footer_tagline: "L'élégance dans chaque verre.",
+        footer_disclaimer: "© 2026 NUBI Bar • Prix en FCFA • À consommer avec modération",
+        whatsapp_text: "RÉSERVER", btl: "BTE", gls: "VER", shot: "SHOT", name: "NOM"
+    }
+};
+
 document.addEventListener('DOMContentLoaded', () => {
     init();
 });
 
-function init() {
+async function init() {
+    sb = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
+    
+    await loadMenuData();
+    
     if (typeof lucide !== 'undefined') lucide.createIcons();
     updateUI();
     renderNav();
@@ -25,6 +48,55 @@ function init() {
     if (typeof gsap !== 'undefined') initScrollAnimations();
 }
 
+async function loadMenuData() {
+    // Fetch sections, subsections and items
+    const { data: sections } = await sb.from('sections').select('*').order('sort_order');
+    const { data: subs } = await sb.from('subsections').select('*').order('sort_order');
+    const { data: items } = await sb.from('items').select('*').eq('is_visible', true).order('sort_order');
+
+    // Reconstruct the nested structure
+    menuData = sections.map(section => {
+        const sectionSubs = subs.filter(s => s.section_id === section.id);
+        const sectionItems = items.filter(i => i.section_id === section.id);
+
+        const structuredSection = {
+            id: section.slug,
+            title: { en: section.title_en, fr: section.title_fr },
+            subtitle: section.subtitle_en ? { en: section.subtitle_en, fr: section.subtitle_fr } : null,
+            type: section.type,
+        };
+
+        if (section.type === 'spirits') {
+            structuredSection.categories = sectionSubs.map(sub => ({
+                name: { en: sub.name_en, fr: sub.name_fr },
+                items: items.filter(i => i.subsection_id === sub.id).map(i => ({
+                    name: i.name_en,
+                    prices: i.prices_array
+                }))
+            }));
+        } else if (sectionSubs.length > 0) {
+            structuredSection.subsections = sectionSubs.map(sub => ({
+                name: { en: sub.name_en, fr: sub.name_fr },
+                defaultPrice: sub.default_price,
+                items: items.filter(i => i.subsection_id === sub.id).map(mapItem)
+            }));
+        } else {
+            structuredSection.items = sectionItems.map(mapItem);
+        }
+
+        return structuredSection;
+    });
+}
+
+function mapItem(i) {
+    return {
+        name: i.name_fr ? { en: i.name_en, fr: i.name_fr } : i.name_en,
+        price: i.price,
+        description: i.description_en ? { en: i.description_en, fr: i.description_fr } : null,
+        note: i.note_en ? { en: i.note_en, fr: i.note_fr } : null
+    };
+}
+// Rest of the rendering functions remain mostly the same, but use the dynamic menuData
 function updateUI() {
     const s = uiStrings[currentLang];
     document.getElementById('hero-subtitle').textContent = s.hero_subtitle;
@@ -36,11 +108,13 @@ function updateUI() {
     
     const waBase = "https://wa.me/225000000000?text=";
     const waText = currentLang === 'en' ? "Hello NUBI Bar, I'd like to reserve a table." : "Bonjour NUBI Bar, je souhaiterais réserver une table.";
-    document.getElementById('whatsapp-btn').href = waBase + encodeURIComponent(waText);
+    const waBtn = document.getElementById('whatsapp-btn');
+    if (waBtn) waBtn.href = waBase + encodeURIComponent(waText);
 }
 
 function renderNav() {
     const navList = document.getElementById('nav-list');
+    if (!navList) return;
     navList.innerHTML = menuData.map(section => `
         <li><a href="#${section.id}" class="nav-link">${section.title[currentLang]}</a></li>
     `).join('');
@@ -120,9 +194,9 @@ function renderMenu() {
                             ${cat.items.map(item => `
                                 <div class="spirit-item group">
                                     <span class="text-white text-xs font-medium group-hover:text-purple-400 transition-colors">${item.name}</span>
-                                    <span class="spirit-price text-gray-400">${item.prices[0]}</span>
-                                    <span class="spirit-price text-gray-400">${item.prices[1]}</span>
-                                    <span class="spirit-price text-purple-400 font-bold glow-text">${item.prices[2]}</span>
+                                    <span class="spirit-price text-gray-400">${item.prices[0] || '-'}</span>
+                                    <span class="spirit-price text-gray-400">${item.prices[1] || '-'}</span>
+                                    <span class="spirit-price text-purple-400 font-bold glow-text">${item.prices[2] || '-'}</span>
                                 </div>
                             `).join('')}
                         </div>
@@ -174,7 +248,7 @@ function renderListItem(item) {
             <div class="menu-item">
                 <span class="text-white group-hover:text-purple-400 transition-colors text-sm font-medium tracking-wide">${name}</span>
                 <span class="dots"></span>
-                <span class="text-purple-400 font-bold text-xs tracking-tighter whitespace-nowrap glow-text">${item.price}</span>
+                <span class="text-purple-400 font-bold text-xs tracking-tighter whitespace-nowrap glow-text">${item.price || ''}</span>
             </div>
             ${note ? `<p class="text-[9px] text-purple-500/80 uppercase tracking-[0.15em] font-bold mt-1">${note}</p>` : ''}
             ${desc ? `<p class="text-[11px] text-gray-400 mt-1 font-light leading-relaxed opacity-70 italic">${desc}</p>` : ''}
@@ -198,12 +272,13 @@ function setupNavigation() {
 }
 
 function setupLangToggle() {
-    document.getElementById('lang-toggle').addEventListener('click', () => {
+    const btn = document.getElementById('lang-toggle');
+    if (!btn) return;
+    btn.addEventListener('click', () => {
         currentLang = currentLang === 'en' ? 'fr' : 'en';
         updateUI();
         renderNav();
         renderMenu();
-
         setupNavigation();
     });
 }
@@ -214,10 +289,7 @@ function initScrollAnimations() {
         const section = wrapper.querySelector('section');
         if (section) {
             gsap.from(section, {
-                opacity: 0,
-                y: 30,
-                duration: 0.8,
-                ease: "power2.out",
+                opacity: 0, y: 30, duration: 0.8, ease: "power2.out",
                 scrollTrigger: {
                     trigger: wrapper,
                     start: "top 85%",

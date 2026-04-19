@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard | NUBI Bar</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .font-serif { font-family: 'Cormorant Garamond', serif; }
+        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(10px); }
+        .glow-purple { box-shadow: 0 0 20px rgba(168, 85, 247, 0.15); }
+        .item-card:hover { border-color: rgba(168, 85, 247, 0.4); }
+        .custom-option { padding: 12px 16px; cursor: pointer; transition: all 0.2s; }
+        .custom-option:hover { background: rgba(168, 85, 247, 0.1); color: #a855f7; }
+        .custom-option.selected { background: rgba(168, 85, 247, 0.2); color: #a855f7; font-weight: 600; }
+    </style>
+</head>
+<body class="bg-[#050505] text-gray-300 min-h-screen">
+
+    <!-- Auth Section -->
+    <div id="auth-container" class="fixed inset-0 z-[100] flex items-center justify-center bg-[#050505] transition-opacity duration-500">
+        <div class="w-full max-w-md p-8 rounded-3xl border border-white/10 glass">
+            <h1 class="text-4xl font-serif text-white mb-8 text-center">NUBI <span class="text-purple-500">Admin</span></h1>
+            <form id="login-form" class="space-y-6">
+                <div>
+                    <label class="block text-xs uppercase tracking-widest text-gray-500 mb-2 font-bold">Email Address</label>
+                    <input type="email" id="email" required class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500 transition-all">
+                </div>
+                <div>
+                    <label class="block text-xs uppercase tracking-widest text-gray-500 mb-2 font-bold">Password</label>
+                    <input type="password" id="password" required class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500 transition-all">
+                </div>
+                <button type="submit" class="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-4 rounded-xl shadow-lg shadow-purple-900/20 transition-all">
+                    LOG IN
+                </button>
+                <div id="login-error" class="text-red-400 text-sm text-center hidden"></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main Dashboard -->
+    <div id="dashboard" class="hidden">
+        <!-- Sidebar -->
+        <aside class="fixed left-0 top-0 h-full w-64 border-r border-white/5 bg-[#080808] z-40 hidden md:block">
+            <div class="p-8">
+                <h2 class="text-xl font-serif text-white mb-10 tracking-widest">NUBI BAR</h2>
+                <nav id="sidebar-nav" class="space-y-2">
+                    <!-- Nav items -->
+                </nav>
+            </div>
+            <div class="absolute bottom-8 left-8 right-8">
+                <button id="logout-btn" class="flex items-center gap-3 text-gray-500 hover:text-white transition-colors text-xs font-bold uppercase tracking-widest">
+                    <i data-lucide="log-out" class="w-4 h-4"></i> Sign Out
+                </button>
+            </div>
+        </aside>
+
+        <!-- Content -->
+        <main class="md:ml-64 p-4 md:p-12">
+            <header class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
+                <div>
+                    <h1 id="current-section-title" class="text-4xl font-serif text-white">Menu Management</h1>
+                    <p class="text-sm text-gray-500 mt-2">Manage your products and their visibility on the menu.</p>
+                </div>
+                <button id="add-item-btn" class="bg-purple-600/10 border border-purple-500/30 hover:border-purple-500 text-purple-400 px-6 py-3 rounded-full text-xs font-bold tracking-widest transition-all flex items-center gap-2">
+                    <i data-lucide="plus" class="w-4 h-4"></i> ADD NEW ITEM
+                </button>
+            </header>
+
+            <div id="items-container" class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                <!-- Items will be injected here -->
+            </div>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <div id="modal-container" class="fixed inset-0 z-[110] hidden flex items-center justify-center bg-black/80 backdrop-blur-sm">
+        <div class="w-full max-w-2xl bg-[#0a0a0a] border border-white/10 rounded-3xl p-8 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-8">
+                <h2 id="modal-title" class="text-2xl font-serif text-white">Edit Item</h2>
+                <button onclick="closeModal()" class="text-gray-500 hover:text-white"><i data-lucide="x"></i></button>
+            </div>
+            <form id="item-form" class="space-y-6">
+                <!-- Form content... -->
+                <input type="hidden" id="item-id">
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-[10px] uppercase tracking-widest text-gray-500 mb-2 font-bold">Name (English)</label>
+                        <input type="text" id="item-name-en" required class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:border-purple-500 outline-none transition-all">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] uppercase tracking-widest text-gray-500 mb-2 font-bold">Name (French)</label>
+                        <input type="text" id="item-name-fr" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:border-purple-500 outline-none transition-all">
+                    </div>
+                </div>
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div class="relative">
+                        <label class="block text-[10px] uppercase tracking-widest text-gray-500 mb-2 font-bold">Category / Subsection</label>
+                        <div id="custom-select" class="relative">
+                            <button type="button" id="select-trigger" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-left flex justify-between items-center focus:border-purple-500 outline-none transition-all">
+                                <span id="selected-text">Select Category</span>
+                                <i data-lucide="chevron-down" class="w-4 h-4 text-gray-500"></i>
+                            </button>
+                            <div id="select-options" class="absolute top-full left-0 right-0 mt-2 bg-[#0a0a0a] border border-white/10 rounded-xl overflow-hidden hidden z-50 shadow-2xl backdrop-blur-xl">
+                                <!-- Populated via JS -->
+                            </div>
+                        </div>
+                        <input type="hidden" id="item-subsection">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] uppercase tracking-widest text-gray-500 mb-2 font-bold">Price (Optional if Category has price)</label>
+                        <input type="text" id="item-price" placeholder="e.g. 7,500 FCFA" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:border-purple-500 outline-none transition-all">
+                    </div>
+                </div>
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-[10px] uppercase tracking-widest text-gray-500 mb-2 font-bold">Description (English)</label>
+                        <textarea id="item-desc-en" rows="3" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:border-purple-500 outline-none transition-all"></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] uppercase tracking-widest text-gray-500 mb-2 font-bold">Description (French)</label>
+                        <textarea id="item-desc-fr" rows="3" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:border-purple-500 outline-none transition-all"></textarea>
+                    </div>
+                </div>
+                <div class="flex items-center gap-4 py-4">
+                    <input type="checkbox" id="item-visible" checked class="w-5 h-5 accent-purple-600">
+                    <label for="item-visible" class="text-sm font-medium">Item is visible on menu</label>
+                </div>
+                <div class="pt-4 border-t border-white/5 flex gap-4">
+                    <button type="submit" class="flex-grow bg-purple-600 hover:bg-purple-500 text-white font-bold py-4 rounded-xl transition-all">SAVE CHANGES</button>
+                    <button type="button" onclick="closeModal()" class="px-8 border border-white/10 hover:bg-white/5 rounded-xl text-sm font-bold tracking-widest transition-all">CANCEL</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Category Modal -->
+    <div id="sub-modal-container" class="fixed inset-0 z-[110] hidden flex items-center justify-center bg-black/80 backdrop-blur-sm">
+        <div class="w-full max-w-lg bg-[#0a0a0a] border border-white/10 rounded-3xl p-8">
+            <div class="flex justify-between items-center mb-8">
+                <h2 class="text-2xl font-serif text-white">Edit Category</h2>
+                <button onclick="closeSubModal()" class="text-gray-500 hover:text-white"><i data-lucide="x"></i></button>
+            </div>
+            <form id="sub-form" class="space-y-6">
+                <input type="hidden" id="sub-id">
+                <div>
+                    <label class="block text-[10px] uppercase tracking-widest text-gray-500 mb-2 font-bold">Category Name</label>
+                    <input type="text" id="sub-name" required class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:border-purple-500 outline-none transition-all">
+                </div>
+                <div>
+                    <label class="block text-[10px] uppercase tracking-widest text-gray-500 mb-2 font-bold">Default Price (optional)</label>
+                    <input type="text" id="sub-price" placeholder="e.g. 6,500 FCFA" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:border-purple-500 outline-none transition-all">
+                </div>
+                <div class="pt-4 border-t border-white/5 flex gap-4">
+                    <button type="submit" class="flex-grow bg-purple-600 hover:bg-purple-500 text-white font-bold py-4 rounded-xl transition-all">UPDATE CATEGORY</button>
+                    <button type="button" onclick="closeSubModal()" class="px-8 border border-white/10 hover:bg-white/5 rounded-xl text-sm font-bold tracking-widest transition-all">CANCEL</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script type="module" src="config.js"></script>
+    <script type="module" src="admin.js"></script>
+</body>
+</html>

@@ -2,5 +2,5 @@ services:
   - type: web
     name: nubi-bar-menu
     env: static
-    buildCommand: ""
-    staticPublishPath: .
+    buildCommand: "npm install && npm run build"
+    staticPublishPath: dist
