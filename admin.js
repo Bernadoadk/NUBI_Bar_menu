@@ -56,6 +56,9 @@ function setupEventListeners() {
     // Logout
     document.getElementById('logout-btn').addEventListener('click', () => sb.auth.signOut());
 
+    // QR Code
+    document.getElementById('generate-qr-btn').addEventListener('click', () => generateAndShowQR());
+
     // Item Form
     document.getElementById('item-form').addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -68,6 +71,54 @@ function setupEventListeners() {
     setupSubFormListener();
     setupCustomSelect();
 }
+
+async function generateAndShowQR() {
+    const btn = document.getElementById('generate-qr-btn');
+    const container = document.getElementById('qr-preview-container');
+    const loader = document.getElementById('qr-loader');
+    const img = document.getElementById('qr-image');
+    
+    // Show container and loader
+    container.classList.remove('hidden');
+    loader.classList.remove('hidden');
+    
+    // Determine Menu URL (Current origin)
+    const menuUrl = window.location.origin;
+
+    try {
+        // Generate QR code using the library
+        // We use a timeout to simulate a loading effect if it's too fast
+        setTimeout(async () => {
+            const qrDataUrl = await QRCode.toDataURL(menuUrl, {
+                width: 400,
+                margin: 2,
+                color: {
+                    dark: '#000000',
+                    light: '#ffffff'
+                }
+            });
+            
+            img.src = qrDataUrl;
+            loader.classList.add('hidden');
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }, 800);
+    } catch (err) {
+        console.error("QR Generation Error:", err);
+        loader.classList.add('hidden');
+    }
+}
+
+window.downloadQRCode = function() {
+    const img = document.getElementById('qr-image');
+    if (!img.src) return;
+    
+    const link = document.createElement('a');
+    link.download = 'NUBI-Bar-Menu-QR.png';
+    link.href = img.src;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+};
 
 async function loadDashboard() {
     // 1. Load Sections
