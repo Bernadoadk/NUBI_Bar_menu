@@ -22,13 +22,6 @@ async function init() {
 
     setupEventListeners();
     if (typeof lucide !== 'undefined') lucide.createIcons();
-    
-    // Load existing QR if any
-    const savedQR = localStorage.getItem('nubi_menu_qr');
-    if (savedQR) {
-        document.getElementById('qr-preview-container').classList.remove('hidden');
-        document.getElementById('qr-image').src = savedQR;
-    }
 }
 
 function handleAuthState(session) {
@@ -39,6 +32,21 @@ function handleAuthState(session) {
         authContainer.classList.add('opacity-0', 'pointer-events-none');
         dashboard.classList.remove('hidden');
         loadDashboard();
+        
+        // Load existing QR if any
+        const savedQR = localStorage.getItem('nubi_menu_qr');
+        if (savedQR) {
+            console.log("Loading saved QR code...");
+            const container = document.getElementById('qr-preview-container');
+            const img = document.getElementById('qr-image');
+            const loader = document.getElementById('qr-loader');
+            
+            if (container && img) {
+                container.classList.remove('hidden');
+                if (loader) loader.classList.add('hidden');
+                img.src = savedQR;
+            }
+        }
     } else {
         authContainer.classList.remove('opacity-0', 'pointer-events-none');
         dashboard.classList.add('hidden');
