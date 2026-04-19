@@ -22,6 +22,13 @@ async function init() {
 
     setupEventListeners();
     if (typeof lucide !== 'undefined') lucide.createIcons();
+    
+    // Load existing QR if any
+    const savedQR = localStorage.getItem('nubi_menu_qr');
+    if (savedQR) {
+        document.getElementById('qr-preview-container').classList.remove('hidden');
+        document.getElementById('qr-image').src = savedQR;
+    }
 }
 
 function handleAuthState(session) {
@@ -99,6 +106,7 @@ async function generateAndShowQR() {
             });
             
             img.src = qrDataUrl;
+            localStorage.setItem('nubi_menu_qr', qrDataUrl); // Save for persistence
             loader.classList.add('hidden');
             if (typeof lucide !== 'undefined') lucide.createIcons();
         }, 800);
