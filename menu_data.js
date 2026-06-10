@@ -230,3 +230,5 @@ const menuData = [
         ]
     }
 ];
+
+export { uiStrings, menuData };

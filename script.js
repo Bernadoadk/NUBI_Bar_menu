@@ -1,8 +1,7 @@
-import CONFIG from './config.js';
+import { api } from './api.js';
 
 let currentLang = 'en';
 let menuData = [];
-let sb;
 
 const sectionImages = {
     'drinks-of-the-week': 'https://images.unsplash.com/photo-1772311698901-fe3fa07141be?fm=jpg&q=60&w=3000&auto=format&fit=crop',
@@ -33,67 +32,16 @@ const uiStrings = {
 init();
 
 async function init() {
-    sb = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
-    
-    await loadMenuData();
+    try {
+        menuData = await api.getMenu();
+    } catch (error) {
+        console.error('Failed to load menu:', error);
+        menuData = [];
+    }
+
     renderContent();
     setupNavigation();
     setupLangToggle();
-}
-
-async function loadMenuData() {
-    // 1. Fetch Sections
-    const { data: sections, error: secError } = await sb.from('sections').select('*').order('sort_order');
-    if (secError) { console.error(secError); return; }
-
-    // 2. Fetch Subsections
-    const { data: subsections, error: subError } = await sb.from('subsections').select('*').order('sort_order');
-    if (subError) { console.error(subError); return; }
-
-    // 3. Fetch Items
-    const { data: items, error: itemError } = await sb.from('items').select('*').eq('is_visible', true).order('sort_order');
-    if (itemError) { console.error(itemError); return; }
-
-    // Assemble hierarchical data matching design.js expectations
-    menuData = sections.map(sec => {
-        const secSubs = subsections.filter(s => s.section_id === sec.id);
-        const secItems = items.filter(i => i.section_id === sec.id && !i.subsection_id);
-        
-        const data = {
-            id: sec.slug,
-            title: { en: sec.title_en, fr: sec.title_fr },
-            type: sec.type || 'list',
-            subtitle: (sec.subtitle_en || sec.subtitle_fr) ? { en: sec.subtitle_en, fr: sec.subtitle_fr } : null,
-            items: secItems.map(i => mapItem(i))
-        };
-
-        if (sec.type === 'spirits') {
-            data.categories = secSubs.map(sub => ({
-                id: sub.id,
-                name: { en: sub.name_en, fr: sub.name_fr },
-                items: items.filter(i => i.subsection_id === sub.id).map(i => mapItem(i))
-            }));
-        } else {
-            data.subsections = secSubs.map(sub => ({
-                id: sub.id,
-                name: { en: sub.name_en, fr: sub.name_fr },
-                defaultPrice: sub.default_price,
-                items: items.filter(i => i.subsection_id === sub.id).map(i => mapItem(i))
-            }));
-        }
-        
-        return data;
-    });
-}
-
-function mapItem(i) {
-    return {
-        name: { en: i.name_en, fr: i.name_fr || i.name_en },
-        price: i.price,
-        description: (i.description_en || i.description_fr) ? { en: i.description_en, fr: i.description_fr } : null,
-        note: (i.note_en || i.note_fr) ? { en: i.note_en, fr: i.note_fr } : null,
-        prices: i.prices_array // for spirits
-    };
 }
 
 function renderContent() {

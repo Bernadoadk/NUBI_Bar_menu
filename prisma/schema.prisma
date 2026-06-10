@@ -1,0 +1,73 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Section {
+  id          String       @id @default(uuid())
+  slug        String       @unique
+  titleEn     String       @map("title_en")
+  titleFr     String       @map("title_fr")
+  type        String       @default("list")
+  subtitleEn  String?      @map("subtitle_en")
+  subtitleFr  String?      @map("subtitle_fr")
+  imageUrl    String?      @map("image_url")
+  sortOrder   Int          @default(0) @map("sort_order")
+  subsections Subsection[]
+  items       Item[]
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  @@map("sections")
+}
+
+model Subsection {
+  id           String   @id @default(uuid())
+  sectionId    String   @map("section_id")
+  section      Section  @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  nameEn       String   @map("name_en")
+  nameFr       String?  @map("name_fr")
+  defaultPrice String?  @map("default_price")
+  sortOrder    Int      @default(0) @map("sort_order")
+  items        Item[]
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("subsections")
+}
+
+model Item {
+  id            String      @id @default(uuid())
+  sectionId     String      @map("section_id")
+  section       Section     @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  subsectionId  String?     @map("subsection_id")
+  subsection    Subsection? @relation(fields: [subsectionId], references: [id], onDelete: SetNull)
+  nameEn        String      @map("name_en")
+  nameFr        String?     @map("name_fr")
+  descriptionEn String?     @map("description_en")
+  descriptionFr String?     @map("description_fr")
+  price         String?
+  noteEn        String?     @map("note_en")
+  noteFr        String?     @map("note_fr")
+  pricesArray   Json?       @map("prices_array")
+  isVisible     Boolean     @default(true) @map("is_visible")
+  sortOrder     Int         @default(0) @map("sort_order")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  @@map("items")
+}
+
+model Admin {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@map("admins")
+}

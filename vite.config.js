@@ -3,10 +3,12 @@ import { resolve } from 'path';
 
 export default defineConfig({
   server: {
-    // This allows /admin to serve admin.html instead of admin.js
-    rewrites: [
-      { from: /^\/admin$/, to: '/admin.html' }
-    ]
+    proxy: {
+      '^/api/': {
+        target: 'http://localhost:3001',
+        changeOrigin: true
+      }
+    }
   },
   build: {
     rollupOptions: {
@@ -16,7 +18,6 @@ export default defineConfig({
       },
     },
   },
-  // Plugin to handle the rewrite in development
   plugins: [
     {
       name: 'rewrite-admin',
@@ -31,4 +32,3 @@ export default defineConfig({
     }
   ]
 });
-
