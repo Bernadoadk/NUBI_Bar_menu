@@ -11,6 +11,22 @@
     {
       "source": "/admin",
       "destination": "/admin.html"
+    },
+    {
+      "source": "/admin/tables",
+      "destination": "/admin-tables.html"
+    },
+    {
+      "source": "/admin-tables.html",
+      "destination": "/admin-tables.html"
+    },
+    {
+      "source": "/admin/orders",
+      "destination": "/admin-orders.html"
+    },
+    {
+      "source": "/admin-orders.html",
+      "destination": "/admin-orders.html"
     }
   ],
   "functions": {

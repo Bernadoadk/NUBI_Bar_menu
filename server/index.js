@@ -15,6 +15,18 @@ if (isProduction) {
     res.sendFile(path.join(distPath, 'admin.html'));
   });
 
+  app.get(['/admin/tables', '/admin-tables.html'], (_req, res) => {
+    res.sendFile(path.join(distPath, 'admin-tables.html'));
+  });
+
+  app.get(['/admin/orders', '/admin-orders.html'], (_req, res) => {
+    res.sendFile(path.join(distPath, 'admin-orders.html'));
+  });
+
+  app.get('/admin.html', (_req, res) => {
+    res.sendFile(path.join(distPath, 'admin.html'));
+  });
+
   app.get('*', (req, res, next) => {
     if (req.path.startsWith('/api')) return next();
     res.sendFile(path.join(distPath, 'index.html'));

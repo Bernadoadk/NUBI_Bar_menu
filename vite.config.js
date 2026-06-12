@@ -15,6 +15,8 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, 'index.html'),
         admin: resolve(__dirname, 'admin.html'),
+        adminTables: resolve(__dirname, 'admin-tables.html'),
+        adminOrders: resolve(__dirname, 'admin-orders.html'),
       },
     },
   },
@@ -22,10 +24,17 @@ export default defineConfig({
     {
       name: 'rewrite-admin',
       configureServer(server) {
-        server.middlewares.use((req, res, next) => {
-          if (req.url === '/admin') {
-            req.url = '/admin.html';
+        server.middlewares.use((req, _res, next) => {
+          const pathname = (req.url || '').split('?')[0].replace(/\/$/, '') || '/';
+
+          if (pathname === '/admin') {
+            req.url = '/admin.html' + (req.url?.includes('?') ? req.url.slice(req.url.indexOf('?')) : '');
+          } else if (pathname === '/admin/tables') {
+            req.url = '/admin-tables.html' + (req.url?.includes('?') ? req.url.slice(req.url.indexOf('?')) : '');
+          } else if (pathname === '/admin/orders') {
+            req.url = '/admin-orders.html' + (req.url?.includes('?') ? req.url.slice(req.url.indexOf('?')) : '');
           }
+
           next();
         });
       }

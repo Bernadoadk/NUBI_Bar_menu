@@ -59,5 +59,44 @@ export const api = {
     method: 'PATCH',
     body: JSON.stringify({ is_visible: isVisible })
   }),
-  deleteItem: (id) => request(`/api/items/${id}`, { method: 'DELETE' })
+  deleteItem: (id) => request(`/api/items/${id}`, { method: 'DELETE' }),
+  getTables: () => request('/api/tables'),
+  createTable: () => request('/api/tables', { method: 'POST' }),
+  deleteTable: (id) => request(`/api/tables/${id}`, { method: 'DELETE' }),
+  checkTable: (number) => request(`/api/tables/check/${number}`),
+  createSession: (tableNumber, token) => request('/api/sessions', {
+    method: 'POST',
+    body: JSON.stringify({ table_number: tableNumber, token })
+  }),
+  createOrder: (sessionToken, items) => request('/api/orders', {
+    method: 'POST',
+    body: JSON.stringify({ session_token: sessionToken, items })
+  }),
+  getSessionOrders: (sessionToken) => request(`/api/orders/session/${sessionToken}`),
+  getOrders: (status) => request(`/api/orders${status ? `?status=${status}` : ''}`),
+  getPendingOrderCount: () => request('/api/orders/pending-count'),
+  updateOrderStatus: (id, status, estimatedMinutes) => request(`/api/orders/${id}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status, estimated_minutes: estimatedMinutes })
+  }),
+  getOrderReceipt: (id, sessionToken) => request(`/api/orders/${id}/receipt?session_token=${encodeURIComponent(sessionToken)}`),
+  cancelOrder: (id, sessionToken) => request(`/api/orders/${id}/cancel`, {
+    method: 'PATCH',
+    body: JSON.stringify({ session_token: sessionToken })
+  }),
+  cancelOrderAdmin: (id) => request(`/api/orders/${id}/cancel`, { method: 'PATCH', body: '{}' }),
+  updateOrderItems: (id, sessionToken, items) => request(`/api/orders/${id}/items`, {
+    method: 'PUT',
+    body: JSON.stringify({ session_token: sessionToken, items })
+  }),
+  callServer: (id, sessionToken) => request(`/api/orders/${id}/call-server`, {
+    method: 'POST',
+    body: JSON.stringify({ session_token: sessionToken })
+  }),
+  closeTableTab: (tableNumber) => request('/api/tables/close-tab', {
+    method: 'POST',
+    body: JSON.stringify({ table_number: tableNumber })
+  }),
+  getTabReceipt: (sessionToken) => request(`/api/orders/session/${sessionToken}/tab-receipt`),
+  getServerCalls: () => request('/api/orders/server-calls')
 };

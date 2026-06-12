@@ -1,14 +1,34 @@
 
 import { api } from './api.js';
 import { adminStrings } from './admin_i18n.js';
+import {
+    initAdminNotifications,
+    updateAdminNotificationLabels,
+    setAdminNotificationsVisible,
+    requestNotificationPermission,
+    notifyAdmin,
+    playOrderSound
+} from './adminNotify.js';
 
 let currentLang = localStorage.getItem('nubi_admin_lang') || 'fr';
 let currentSectionId = null;
 let allSections = [];
 let currentSubsections = [];
+let ordersPollTimer = null;
+let lastPendingCount = 0;
 
 function t(key) {
     return adminStrings[currentLang][key] || adminStrings.fr[key] || key;
+}
+
+function notificationLabels() {
+    return {
+        title: t('notifications'),
+        empty: t('notifications_empty'),
+        mark_read: t('notifications_mark_read'),
+        clear: t('notifications_clear'),
+        open_orders: t('notifications_open_orders')
+    };
 }
 
 function sectionTitle(section) {
@@ -43,6 +63,7 @@ function updateUI() {
     document.querySelectorAll('[data-i18n-alt]').forEach(el => {
         el.alt = t(el.dataset.i18nAlt);
     });
+    updateAdminNotificationLabels(notificationLabels());
 
     if (allSections.length > 0) {
         renderSidebar();
@@ -62,6 +83,8 @@ function updateUI() {
 init();
 
 async function init() {
+    initAdminNotifications(notificationLabels());
+    setAdminNotificationsVisible(false);
     updateUI();
     setupLangToggle();
 
@@ -99,24 +122,37 @@ function handleAuthState(isAuthenticated) {
     if (isAuthenticated) {
         authContainer.classList.add('opacity-0', 'pointer-events-none');
         dashboard.classList.remove('hidden');
+        setAdminNotificationsVisible(true);
         loadDashboard();
-
-        const savedQR = localStorage.getItem('nubi_menu_qr');
-        if (savedQR) {
-            const container = document.getElementById('qr-preview-container');
-            const img = document.getElementById('qr-image');
-            const loader = document.getElementById('qr-loader');
-
-            if (container && img) {
-                container.classList.remove('hidden');
-                if (loader) loader.classList.add('hidden');
-                img.src = savedQR;
-            }
-        }
+        requestNotificationPermission();
+        pollPendingOrders();
+        if (!ordersPollTimer) ordersPollTimer = setInterval(pollPendingOrders, 8000);
     } else {
         authContainer.classList.remove('opacity-0', 'pointer-events-none');
         dashboard.classList.add('hidden');
+        setAdminNotificationsVisible(false);
+        if (ordersPollTimer) { clearInterval(ordersPollTimer); ordersPollTimer = null; }
     }
+}
+
+async function pollPendingOrders() {
+    try {
+        const { count } = await api.getPendingOrderCount();
+        const badge = document.getElementById('admin-orders-badge');
+        if (badge) {
+            badge.textContent = count;
+            badge.classList.toggle('hidden', count === 0);
+        }
+        if (count > lastPendingCount && lastPendingCount > 0) {
+            playOrderSound();
+            notifyAdmin(t('new_order_title'), t('new_order_body').replace('{n}', count), {
+                type: 'order',
+                href: '/admin-orders.html',
+                tag: 'nubi-new-order'
+            });
+        }
+        lastPendingCount = count;
+    } catch { /* ignore */ }
 }
 
 function setupEventListeners() {
@@ -142,7 +178,6 @@ function setupEventListeners() {
         handleAuthState(false);
     });
 
-    document.getElementById('generate-qr-btn').addEventListener('click', () => generateAndShowQR());
     document.getElementById('item-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         saveItem();
@@ -152,50 +187,6 @@ function setupEventListeners() {
     setupSubFormListener();
     setupCustomSelect();
 }
-
-async function generateAndShowQR() {
-    const container = document.getElementById('qr-preview-container');
-    const loader = document.getElementById('qr-loader');
-    const img = document.getElementById('qr-image');
-
-    container.classList.remove('hidden');
-    loader.classList.remove('hidden');
-
-    const menuUrl = window.location.origin.replace(/\/admin.*$/, '');
-
-    try {
-        setTimeout(async () => {
-            const qrDataUrl = await QRCode.toDataURL(menuUrl, {
-                width: 400,
-                margin: 2,
-                color: {
-                    dark: '#000000',
-                    light: '#ffffff'
-                }
-            });
-
-            img.src = qrDataUrl;
-            localStorage.setItem('nubi_menu_qr', qrDataUrl);
-            loader.classList.add('hidden');
-            if (typeof lucide !== 'undefined') lucide.createIcons();
-        }, 800);
-    } catch (err) {
-        console.error('QR Generation Error:', err);
-        loader.classList.add('hidden');
-    }
-}
-
-window.downloadQRCode = function() {
-    const img = document.getElementById('qr-image');
-    if (!img.src) return;
-
-    const link = document.createElement('a');
-    link.download = 'NUBI-Bar-Menu-QR.png';
-    link.href = img.src;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-};
 
 async function loadDashboard() {
     try {

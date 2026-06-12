@@ -1,7 +1,12 @@
 import { api } from './api.js';
+import {
+    initOrdering, setOrderingLang, renderAddButton, renderSpiritAddButton, setupMenuCartListeners
+} from './ordering.js';
 
-let currentLang = 'en';
+let currentLang = 'fr';
 let menuData = [];
+let currentTableNumber = null;
+let sessionToken = null;
 
 const sectionImages = {
     'drinks-of-the-week': 'https://images.unsplash.com/photo-1772311698901-fe3fa07141be?fm=jpg&q=60&w=3000&auto=format&fit=crop',
@@ -18,20 +23,37 @@ const uiStrings = {
         hero_categories: "Wines • Spirits • Cocktails • Food",
         footer_tagline: "Elegance in every pour.",
         footer_disclaimer: "© 2026 NUBI Bar • All prices in FCFA • Please drink responsibly",
-        whatsapp_text: "RESERVE TABLE", btl: "BTL", gls: "GLS", shot: "SHOT", name: "NAME"
+        whatsapp_text: "RESERVE TABLE", btl: "BTL", gls: "GLS", shot: "SHOT", name: "NAME",
+        table_badge: "Table", table_error_title: "Table not found",
+        table_error_message: "This table no longer exists. Please contact staff.",
+        order_mode_title: "Browsing mode",
+        order_mode_text: "Scan your table QR code to place an order."
     },
     fr: {
         hero_subtitle: "Découvrez Notre Sélection",
         hero_categories: "Vins • Spiritueux • Cocktails • Cuisine",
         footer_tagline: "L'élégance dans chaque verre.",
         footer_disclaimer: "© 2026 NUBI Bar • Prix en FCFA • À consommer avec modération",
-        whatsapp_text: "RÉSERVER", btl: "BTE", gls: "VER", shot: "SHOT", name: "NOM"
+        whatsapp_text: "RÉSERVER", btl: "BTE", gls: "VER", shot: "SHOT", name: "NOM",
+        table_badge: "Table", table_error_title: "Table introuvable",
+        table_error_message: "Cette table n'existe plus. Veuillez contacter le personnel.",
+        order_mode_title: "Menu consultation",
+        order_mode_text: "Scannez le QR de votre table pour commander."
     }
 };
 
 init();
 
 async function init() {
+    const params = new URLSearchParams(window.location.search);
+    const tableParam = params.get('table');
+
+    if (tableParam) {
+        const valid = await validateTable(tableParam);
+        if (!valid) return;
+        await initSession();
+    }
+
     try {
         menuData = await api.getMenu();
     } catch (error) {
@@ -42,6 +64,68 @@ async function init() {
     renderContent();
     setupNavigation();
     setupLangToggle();
+    setupMenuCartListeners();
+}
+
+async function initSession() {
+    const storedToken = localStorage.getItem(`nubi_session_${currentTableNumber}`);
+    const urlToken = new URLSearchParams(window.location.search).get('session');
+
+    try {
+        const session = await api.createSession(currentTableNumber, urlToken || storedToken || null);
+        sessionToken = session.token;
+        localStorage.setItem(`nubi_session_${currentTableNumber}`, session.token);
+        sessionStorage.setItem('nubi_table_number', String(currentTableNumber));
+
+        const url = new URL(window.location.href);
+        url.searchParams.set('table', currentTableNumber);
+        url.searchParams.set('session', session.token);
+        window.history.replaceState({}, '', url);
+
+        setOrderingLang(currentLang);
+        await initOrdering(currentTableNumber, sessionToken);
+        document.getElementById('order-mode-hint')?.classList.add('hidden');
+    } catch (error) {
+        console.error('Session init failed:', error);
+    }
+}
+
+async function validateTable(tableParam) {
+    const number = parseInt(tableParam, 10);
+    if (!Number.isInteger(number) || number < 1) {
+        showTableError();
+        return false;
+    }
+
+    try {
+        const result = await api.checkTable(number);
+        if (!result.exists) {
+            showTableError();
+            return false;
+        }
+
+        currentTableNumber = result.number;
+        showTableBadge();
+        return true;
+    } catch {
+        showTableError();
+        return false;
+    }
+}
+
+function showTableError() {
+    const s = uiStrings[currentLang];
+    document.getElementById('table-error-title').textContent = s.table_error_title;
+    document.getElementById('table-error-message').textContent = s.table_error_message;
+    document.getElementById('table-error-overlay').classList.remove('hidden');
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+function showTableBadge() {
+    if (!currentTableNumber) return;
+    const s = uiStrings[currentLang];
+    document.getElementById('table-badge-text').textContent = `${s.table_badge} ${currentTableNumber}`;
+    document.getElementById('table-badge').classList.remove('hidden');
 }
 
 function renderContent() {
@@ -59,11 +143,19 @@ function updateUI() {
     document.getElementById('footer-tagline').textContent = s.footer_tagline;
     document.getElementById('footer-disclaimer').textContent = s.footer_disclaimer;
     document.getElementById('whatsapp-text').textContent = s.whatsapp_text;
+    document.getElementById('order-mode-title').textContent = s.order_mode_title;
+    document.getElementById('order-mode-text').textContent = s.order_mode_text;
     document.getElementById('lang-text').textContent = currentLang === 'en' ? 'FR' : 'EN';
-    
+
+    if (currentTableNumber) {
+        document.getElementById('table-badge-text').textContent = `${s.table_badge} ${currentTableNumber}`;
+    }
+
     const waBase = "https://wa.me/225000000000?text=";
     const waText = currentLang === 'en' ? "Hello NUBI Bar, I'd like to reserve a table." : "Bonjour NUBI Bar, je souhaiterais réserver une table.";
     document.getElementById('whatsapp-btn').href = waBase + encodeURIComponent(waText);
+
+    if (sessionToken) setOrderingLang(currentLang);
 }
 
 function renderNav() {
@@ -73,19 +165,30 @@ function renderNav() {
     `).join('');
 }
 
+function itemForCart(item) {
+    return {
+        id: item.id,
+        name_en: item.name.en,
+        name_fr: item.name.fr,
+        price: item.price,
+        prices: item.prices
+    };
+}
+
 function renderMenu() {
     const container = document.getElementById('menu-container');
     if (!container) return;
-    container.innerHTML = ''; 
+    container.innerHTML = '';
+    const ordering = !!sessionToken;
 
     menuData.forEach(section => {
         const bgWrapper = document.createElement('div');
         bgWrapper.className = 'menu-section-wrapper py-24 md:py-32';
         bgWrapper.style.backgroundImage = `url('${sectionImages[section.id] || ''}')`;
-        
+
         const contentContainer = document.createElement('div');
         contentContainer.className = 'container mx-auto px-4 max-w-5xl relative z-20';
-        
+
         const sectionEl = document.createElement('section');
         sectionEl.id = section.id;
         sectionEl.className = 'scroll-mt-32';
@@ -120,6 +223,7 @@ function renderMenu() {
                                         ${item.price ? `<span class="text-purple-400 font-semibold text-xs whitespace-nowrap glow-text">${item.price}</span>` : ''}
                                     </div>
                                     ${item.description ? `<p class="text-gray-400 text-[11px] mt-1 leading-relaxed font-light italic opacity-80">${item.description[currentLang]}</p>` : ''}
+                                    ${ordering ? renderAddButton(itemForCart(item)) : ''}
                                 </div>
                             `).join('')}
                         </div>
@@ -132,7 +236,7 @@ function renderMenu() {
             bodyHtml += `<div class="grid lg:grid-cols-2 gap-10">`;
             section.categories.forEach(cat => {
                 bodyHtml += `
-                    <div class="backdrop-blur-sm bg-black/40 p-6 rounded-xl border border-white/5">
+                    <div class="backdrop-blur-sm bg-black/40 p-6 rounded-xl border border-white/5${ordering ? ' spirits-with-cart' : ''}">
                         <h3 class="text-lg font-serif text-purple-400 mb-6 flex items-center gap-3">
                             <span class="w-6 h-px bg-purple-500/30"></span>
                             ${cat.name[currentLang]}
@@ -142,14 +246,16 @@ function renderMenu() {
                             <span class="text-right">${s.btl}</span>
                             <span class="text-right">${s.gls}</span>
                             <span class="text-right">${s.shot}</span>
+                            ${ordering ? '<span></span>' : ''}
                         </div>
                         <div class="mt-2">
                             ${cat.items.map(item => `
-                                <div class="spirit-item group">
+                                <div class="spirit-item group relative">
                                     <span class="text-white text-xs font-medium group-hover:text-purple-400 transition-colors">${item.name[currentLang]}</span>
                                     <span class="spirit-price text-gray-400">${item.prices ? item.prices[0] : ''}</span>
                                     <span class="spirit-price text-gray-400">${item.prices ? item.prices[1] : ''}</span>
                                     <span class="spirit-price text-purple-400 font-bold glow-text">${item.prices ? item.prices[2] : ''}</span>
+                                    ${ordering ? `<span class="text-right relative">${renderSpiritAddButton(itemForCart(item))}</span>` : ''}
                                 </div>
                             `).join('')}
                         </div>
@@ -170,7 +276,7 @@ function renderMenu() {
                                 <div class="h-px bg-white/10 flex-grow"></div>
                             </h3>
                             <div class="grid md:grid-cols-2 gap-x-10 gap-y-2">
-                                ${sub.items.map(item => renderListItem(item)).join('')}
+                                ${sub.items.map(item => renderListItem(item, ordering)).join('')}
                             </div>
                         </div>
                     `;
@@ -178,7 +284,7 @@ function renderMenu() {
                 listContent += `</div>`;
             } else {
                 listContent += `<div class="grid md:grid-cols-2 gap-x-10 gap-y-2">
-                    ${section.items.map(item => renderListItem(item)).join('')}
+                    ${section.items.map(item => renderListItem(item, ordering)).join('')}
                 </div>`;
             }
             bodyHtml += listWrapperStart + listContent + `</div>`;
@@ -191,11 +297,11 @@ function renderMenu() {
     });
 }
 
-function renderListItem(item) {
+function renderListItem(item, ordering) {
     const name = item.name[currentLang];
     const note = item.note ? item.note[currentLang] : null;
     const desc = item.description ? item.description[currentLang] : null;
-    
+
     return `
         <div class="group py-2">
             <div class="menu-item">
@@ -205,6 +311,7 @@ function renderListItem(item) {
             </div>
             ${note ? `<p class="text-[9px] text-purple-500/80 uppercase tracking-[0.15em] font-bold mt-1">${note}</p>` : ''}
             ${desc ? `<p class="text-[11px] text-gray-400 mt-1 font-light leading-relaxed opacity-70 italic">${desc}</p>` : ''}
+            ${ordering ? renderAddButton(itemForCart(item)) : ''}
         </div>
     `;
 }

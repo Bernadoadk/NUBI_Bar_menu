@@ -1,5 +1,6 @@
 function mapItem(item) {
   return {
+    id: item.id,
     name: { en: item.nameEn, fr: item.nameFr || item.nameEn },
     price: item.price,
     description: (item.descriptionEn || item.descriptionFr)

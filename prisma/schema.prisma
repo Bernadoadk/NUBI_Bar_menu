@@ -71,3 +71,78 @@ model Admin {
 
   @@map("admins")
 }
+
+model Table {
+  id        String         @id @default(uuid())
+  number    Int            @unique
+  createdAt DateTime       @default(now()) @map("created_at")
+  sessions  TableSession[]
+  orders    Order[]
+
+  @@map("tables")
+}
+
+enum SessionStatus {
+  ACTIVE
+  CLOSED
+}
+
+model TableSession {
+  id        String        @id @default(uuid())
+  token     String        @unique @default(uuid())
+  tableId   String        @map("table_id")
+  table     Table         @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  status    SessionStatus @default(ACTIVE)
+  orders    Order[]
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+  closedAt  DateTime?     @map("closed_at")
+
+  @@map("table_sessions")
+}
+
+enum OrderStatus {
+  SENT
+  VIEWED
+  PREPARING
+  READY
+  PAID
+  COMPLETED
+  CANCELLED
+}
+
+model Order {
+  id               String      @id @default(uuid())
+  displayNumber    Int         @unique @default(autoincrement()) @map("display_number")
+  sessionId        String      @map("session_id")
+  session          TableSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  tableId          String      @map("table_id")
+  table            Table       @relation(fields: [tableId], references: [id])
+  status           OrderStatus @default(SENT)
+  estimatedMinutes Int?        @map("estimated_minutes")
+  items            OrderItem[]
+  createdAt        DateTime    @default(now()) @map("created_at")
+  updatedAt        DateTime    @updatedAt @map("updated_at")
+  viewedAt         DateTime?   @map("viewed_at")
+  preparingAt      DateTime?   @map("preparing_at")
+  readyAt          DateTime?   @map("ready_at")
+  completedAt      DateTime?   @map("completed_at")
+  cancelledAt      DateTime?   @map("cancelled_at")
+  calledAt         DateTime?   @map("called_at")
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id       String  @id @default(uuid())
+  orderId  String  @map("order_id")
+  order    Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  itemId   String? @map("item_id")
+  nameEn   String  @map("name_en")
+  nameFr   String? @map("name_fr")
+  price    String?
+  quantity Int     @default(1)
+  note     String?
+
+  @@map("order_items")
+}
