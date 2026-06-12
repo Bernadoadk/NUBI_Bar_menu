@@ -74,7 +74,9 @@ Identifiants admin par défaut (après seed) :
 
 | `npm run build` | Build du frontend |
 
-| `npm run vercel-build` | Build complet pour Vercel (Prisma + migrations + Vite) |
+| `npm run vercel-build` | Build Vercel du frontend |
+
+| `npm run db:deploy` | Appliquer les migrations Prisma en production |
 
 | `npm start` | Serveur de production local |
 
@@ -126,13 +128,16 @@ Ou connectez le dépôt GitHub à Vercel — le fichier `vercel.json` configure 
 
 - la route `/admin` vers `admin.html`
 
+> Le build Vercel ne lance pas les migrations automatiquement. Configurez d'abord `DATABASE_URL`, puis appliquez les migrations avec `npm run db:deploy`.
+
 ### 4. Peupler la base (premier déploiement)
 
-Après le premier déploiement, exécutez le seed une fois en local avec l'URL de prod :
+Après le premier déploiement, appliquez les migrations puis exécutez le seed une fois en local avec l'URL de prod :
 
 ```bash
 vercel env pull .env.production
 # Copiez DATABASE_URL de .env.production dans .env, puis :
+npm run db:deploy
 npm run db:seed
 ```
 
